@@ -1,0 +1,16 @@
+## .NET
+bin/
+obj/
+publish/
+*.user
+*.suo
+.vs/
+*.swp
+
+## NuGet
+*.nupkg
+.nuget/
+
+## OS
+.DS_Store
+Thumbs.db

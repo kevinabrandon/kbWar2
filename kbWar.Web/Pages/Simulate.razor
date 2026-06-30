@@ -1,0 +1,179 @@
+@page "/simulate"
+
+<PageTitle>Simulate — kbWar2</PageTitle>
+
+<h1>Monte Carlo Simulation</h1>
+
+<div class="sim-controls">
+    <label>
+        Players:
+        <input type="number" min="2" max="52" @bind="playerCount" disabled="@running" class="player-count-input" />
+    </label>
+    <label>
+        Games to simulate:
+        <input type="number" min="1" max="100000" @bind="totalGames" disabled="@running" class="games-input" />
+    </label>
+    <label>
+        <input type="checkbox" @bind="shuffleWon" disabled="@running" />
+        Shuffle recently won cards
+    </label>
+    <button class="btn btn-primary" @onclick="RunSimulation" disabled="@running">Run</button>
+    @if (running)
+    {
+        <button class="btn btn-danger" @onclick="Cancel">Cancel</button>
+    }
+</div>
+
+@if (running || results.Count > 0)
+{
+    <div class="sim-progress">
+        <div class="progress" style="height: 22px;">
+            <div class="progress-bar" role="progressbar"
+                 style="width: @progressPct%"
+                 aria-valuenow="@gamesRun" aria-valuemin="0" aria-valuemax="@totalGames">
+                @gamesRun / @totalGames
+            </div>
+        </div>
+    </div>
+}
+
+@if (results.Count > 0 && !running)
+{
+    <div class="sim-output">
+        <pre>@BuildReport()</pre>
+    </div>
+}
+
+@code {
+    private int playerCount = 2;
+    private int totalGames = 1000;
+    private bool shuffleWon = true;
+    private bool running = false;
+    private bool cancelled = false;
+    private int gamesRun = 0;
+    private double progressPct => totalGames > 0 ? (100.0 * gamesRun / totalGames) : 0;
+
+    private record GameRecord(int Turns, int Winner, bool Loop,
+        kbCardGameWar.GameCounters Counters);
+
+    private List<GameRecord> results = [];
+
+    private const int BatchSize = 50;
+
+    private async Task RunSimulation()
+    {
+        running = true;
+        cancelled = false;
+        gamesRun = 0;
+        results = [];
+
+        var rng = new Random();
+        int remaining = totalGames;
+
+        while (remaining > 0 && !cancelled)
+        {
+            int batch = Math.Min(BatchSize, remaining);
+            for (int i = 0; i < batch && !cancelled; i++)
+            {
+                var game = new kbCardGameWar(playerCount, rng);
+                game.ShuffleRecentlyWonCards = shuffleWon;
+                game.ShuffleDeck();
+                game.Deal();
+                game.PlayTillFinished();
+
+                bool loop = game.State == kbCardGameWar.GameState.eInfiniteLoop;
+                results.Add(new GameRecord(game.Counters.nTurns, game.Winner, loop, game.Counters));
+                gamesRun++;
+            }
+            remaining -= batch;
+            StateHasChanged();
+            await Task.Yield();
+        }
+
+        running = false;
+    }
+
+    private void Cancel() => cancelled = true;
+
+    private string BuildReport()
+    {
+        if (results.Count == 0) return "";
+
+        var finished = results.Where(r => !r.Loop).ToList();
+        int loops = results.Count - finished.Count;
+        var turns = finished.Select(r => r.Turns).ToList();
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("kbWar2 Simulation Results");
+        sb.AppendLine("=========================");
+        sb.AppendLine($"Players:              {playerCount}");
+        sb.AppendLine($"Shuffle won cards:    {(shuffleWon ? "yes" : "no")}");
+        sb.AppendLine($"Games simulated:      {results.Count:N0}");
+        sb.AppendLine($"Completed (winner):   {finished.Count:N0}");
+        sb.AppendLine($"Infinite loops:       {loops:N0}");
+        sb.AppendLine();
+
+        if (turns.Count > 0)
+        {
+            var sorted = turns.OrderBy(t => t).ToList();
+            sb.AppendLine("Turn statistics (completed games):");
+            sb.AppendLine($"  Min:    {sorted[0]:N0}");
+            sb.AppendLine($"  Max:    {sorted[^1]:N0}");
+            sb.AppendLine($"  Mean:   {turns.Average():N1}");
+            sb.AppendLine($"  Median: {sorted[sorted.Count / 2]:N0}");
+            sb.AppendLine();
+
+            // War depth breakdown
+            sb.AppendLine("War depth totals (across all games):");
+            sb.AppendLine($"  Total wars:      {finished.Sum(r => r.Counters.nTotalWars):N0}");
+            sb.AppendLine($"  Single wars:     {finished.Sum(r => r.Counters.nSingleWars):N0}");
+            sb.AppendLine($"  Double wars:     {finished.Sum(r => r.Counters.nDoubleWars):N0}");
+            sb.AppendLine($"  Triple wars:     {finished.Sum(r => r.Counters.nTripleWars):N0}");
+            sb.AppendLine($"  Quadruple wars:  {finished.Sum(r => r.Counters.nQuadrupleWars):N0}");
+            sb.AppendLine($"  Quintuple wars:  {finished.Sum(r => r.Counters.nQuintupleWars):N0}");
+            sb.AppendLine($"  Sextuple wars:   {finished.Sum(r => r.Counters.nSextupleWars):N0}");
+            sb.AppendLine($"  Septuple wars:   {finished.Sum(r => r.Counters.nSeptupleWars):N0}");
+            sb.AppendLine();
+
+            // Win rates
+            if (playerCount <= 10)
+            {
+                sb.AppendLine("Win rates:");
+                var winners = finished.Where(r => r.Winner >= 0)
+                    .GroupBy(r => r.Winner)
+                    .ToDictionary(g => g.Key, g => g.Count());
+                for (int p = 0; p < playerCount; p++)
+                {
+                    int wins = winners.GetValueOrDefault(p, 0);
+                    sb.AppendLine($"  Player {p + 1}: {wins,6:N0}  ({100.0 * wins / finished.Count:F1}%)");
+                }
+                sb.AppendLine();
+            }
+
+            // Histogram
+            sb.AppendLine("Game length distribution:");
+            int min = sorted[0], max = sorted[^1];
+            if (max > min)
+            {
+                int buckets = 10;
+                double w = (double)(max - min) / buckets;
+                var counts = new int[buckets];
+                foreach (var t in turns)
+                    counts[Math.Min((int)((t - min) / w), buckets - 1)]++;
+                int maxCount = counts.Max();
+                for (int b = 0; b < buckets; b++)
+                {
+                    int lo = (int)(min + b * w), hi = (int)(min + (b + 1) * w);
+                    int bar = maxCount > 0 ? counts[b] * 30 / maxCount : 0;
+                    sb.AppendLine($"  {lo,6}–{hi,-6} |{"".PadLeft(bar, '#')}  {counts[b]:N0}");
+                }
+            }
+            else
+            {
+                sb.AppendLine($"  All games ended in {min} turns.");
+            }
+        }
+
+        return sb.ToString();
+    }
+}
