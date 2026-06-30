@@ -11,20 +11,37 @@
     </div>
 
     <div class="home-info">
-        <h2>About</h2>
+        <h2>What is this?</h2>
         <p>
-            kbWar simulates the card game <em>War</em> for 2&ndash;52 players.
-            The <strong>Play</strong> page lets you step through a game turn by turn,
-            or watch it auto-play at your chosen speed.
-            The <strong>Simulate</strong> page runs thousands of games and reports statistics
-            about game length, the effect of shuffling recently won cards, and player win rates.
+            Back in 2014 I wrote <a href="https://github.com/kevinabrandon/kbWar" target="_blank">kbWar</a>
+            after playing the card game WAR with my 7-year-old daughter.
+            I had a bunch of questions about the game &mdash; how long does it typically last,
+            how often do you get a WAR, can it ever go on forever? &mdash; and I wanted to find out.
+            I wrote a Windows app to run the simulation and got my answers.
         </p>
         <p>
-            The key question kbWar was originally built to answer:
-            <em>does shuffling the cards a player recently won change the expected game length?</em>
+            The problem is that it only ran on Windows, and you had to download and compile it yourself.
+            So I rebuilt it here as a web app.  The core game logic is the original C# code, unchanged.
         </p>
+
+        <h2>Answers</h2>
+        <table class="answers-table">
+            <thead><tr><th>Question</th><th>Answer</th></tr></thead>
+            <tbody>
+                <tr><td>How long does a game last?</td><td>About 270 turns on average.</td></tr>
+                <tr><td>How often do you get a WAR?</td><td>About 6 every 100 turns.</td></tr>
+                <tr><td>How often do you get a double WAR?</td><td>About 3 every 1,000 turns.</td></tr>
+                <tr><td>Can you have an unending game?</td><td>YES &mdash; but only if the players never mix up the cards they win.</td></tr>
+                <tr><td>How often are there unending games?</td><td>About a tenth of all games, if you never shuffle the won cards.*</td></tr>
+            </tbody>
+        </table>
+        <p class="footnote">
+            * Only if you are very careful never to shuffle the cards won after each turn.  In practice this is unlikely.
+            Try it yourself on the <a href="simulate">Simulate</a> page &mdash; toggle the "Shuffle recently won cards" option and see what happens to the numbers.
+        </p>
+
         <p>
-            Source: <a href="https://github.com/kevinabrandon/kbWar2" target="_blank">github.com/kevinabrandon/kbWar2</a>
+            <a href="https://github.com/kevinabrandon/kbWar2" target="_blank">github.com/kevinabrandon/kbWar2</a>
         </p>
     </div>
 </div>
