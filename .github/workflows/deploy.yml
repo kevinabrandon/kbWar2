@@ -1,0 +1,55 @@
+name: Build and Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install WASM workload
+        run: dotnet workload install wasm-tools
+
+      - name: Restore
+        run: dotnet restore kbWar2.sln
+
+      - name: Test
+        run: dotnet test kbWar.Tests/kbWar.Tests.csproj --no-restore --logger "console;verbosity=minimal"
+
+      - name: Publish Blazor WASM
+        run: >
+          dotnet publish kbWar.Web/kbWar.Web.csproj
+          --configuration Release
+          --no-restore
+          -p:GHPages=true
+          --output publish
+
+      - name: Fix base href for GitHub Pages
+        run: |
+          INDEX=publish/wwwroot/index.html
+          sed -i 's|<base href="/" />|<base href="/kbWar2/" />|g' "$INDEX"
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: publish/wwwroot
+          force_orphan: true

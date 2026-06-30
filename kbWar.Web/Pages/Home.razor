@@ -1,0 +1,41 @@
+@page "/"
+
+<PageTitle>kbWar2</PageTitle>
+
+<div class="home-hero">
+    <pre class="ascii-art">@asciiLogo</pre>
+
+    <div class="home-buttons">
+        <a class="btn btn-primary btn-lg" href="game">Play &rarr;</a>
+        <a class="btn btn-secondary btn-lg" href="simulate">Simulate &rarr;</a>
+    </div>
+
+    <div class="home-info">
+        <h2>About</h2>
+        <p>
+            kbWar simulates the card game <em>War</em> for 2&ndash;52 players.
+            The <strong>Play</strong> page lets you step through a game turn by turn,
+            or watch it auto-play at your chosen speed.
+            The <strong>Simulate</strong> page runs thousands of games and reports statistics
+            about game length, the effect of shuffling recently won cards, and player win rates.
+        </p>
+        <p>
+            The key question kbWar was originally built to answer:
+            <em>does shuffling the cards a player recently won change the expected game length?</em>
+        </p>
+        <p>
+            Source: <a href="https://github.com/kevinabrandon/kbWar2" target="_blank">github.com/kevinabrandon/kbWar2</a>
+        </p>
+    </div>
+</div>
+
+@code {
+    private static readonly string asciiLogo =
+        "  _    _      __          __\n" +
+        " | | _| |__  \\ \\        / /_ _ _ __\n" +
+        " | |/ / '_ \\  \\ \\  /\\  / / _` | '__|\n" +
+        " |   <| |_) |  \\ \\/  \\/ / (_| | |\n" +
+        " |_|\\_\\_.__/    \\__/\\__/ \\__,_|_|\n\n" +
+        " Monte Carlo Simulation of WAR -- the card game\n" +
+        " Blazor WebAssembly port of kbWar (2014)";
+}

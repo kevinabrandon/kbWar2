@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "kbWar.Core", "kbWar.Core\kbWar.Core.csproj", "{4FDAB9B4-7FDE-4464-AA39-A15E26057CED}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "kbWar.Web", "kbWar.Web\kbWar.Web.csproj", "{1BE52F1F-386A-4F75-B1B5-EB17AF12746C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "kbWar.Tests", "kbWar.Tests\kbWar.Tests.csproj", "{DC078EE1-E6CC-4894-BA6B-2CF7E18770F8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4FDAB9B4-7FDE-4464-AA39-A15E26057CED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4FDAB9B4-7FDE-4464-AA39-A15E26057CED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4FDAB9B4-7FDE-4464-AA39-A15E26057CED}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4FDAB9B4-7FDE-4464-AA39-A15E26057CED}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1BE52F1F-386A-4F75-B1B5-EB17AF12746C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1BE52F1F-386A-4F75-B1B5-EB17AF12746C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1BE52F1F-386A-4F75-B1B5-EB17AF12746C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1BE52F1F-386A-4F75-B1B5-EB17AF12746C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DC078EE1-E6CC-4894-BA6B-2CF7E18770F8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DC078EE1-E6CC-4894-BA6B-2CF7E18770F8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DC078EE1-E6CC-4894-BA6B-2CF7E18770F8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DC078EE1-E6CC-4894-BA6B-2CF7E18770F8}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

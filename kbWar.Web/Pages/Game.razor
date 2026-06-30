@@ -1,0 +1,179 @@
+@page "/game"
+@using System.Timers
+@implements IDisposable
+
+<PageTitle>Play — kbWar2</PageTitle>
+
+<h1>Play War</h1>
+
+<div class="game-controls">
+    <label>
+        Players:
+        <input type="number" min="2" max="52" @bind="playerCount" @bind:event="oninput" disabled="@gameStarted" class="player-count-input" />
+    </label>
+    <label>
+        <input type="checkbox" @bind="shuffleWon" disabled="@gameStarted" />
+        Shuffle recently won cards
+    </label>
+
+    @if (!gameStarted)
+    {
+        <button class="btn btn-primary" @onclick="StartGame">Deal</button>
+    }
+    else
+    {
+        <button class="btn btn-success" @onclick="ThrowOnce" disabled="@(autoPlaying || gameOver)">Throw</button>
+        <button class="btn btn-outline-success" @onclick="ToggleAuto" disabled="@gameOver">
+            @(autoPlaying ? "Pause" : "Auto")
+        </button>
+        <label class="ms-2">
+            Speed:
+            <input type="range" min="50" max="1000" step="50" @bind="autoIntervalMs" @bind:event="oninput" />
+            @autoIntervalMs ms
+        </label>
+        <button class="btn btn-secondary ms-3" @onclick="NewGame">New Game</button>
+    }
+</div>
+
+@if (gameStarted)
+{
+    <div class="game-stats">
+        <span>Turn: <strong>@currentTurn</strong></span>
+        @if (lastResult != null && lastResult.WarRounds?.Count > 0)
+        {
+            <span class="badge bg-danger ms-2">WAR!</span>
+        }
+        @if (gameOver)
+        {
+            <span class="badge bg-primary ms-2">
+                @(game!.Result == GameResult.InfiniteLoop
+                    ? "Infinite loop detected"
+                    : $"Player {(game.GameWinnerId!.Value + 1)} wins!")
+            </span>
+        }
+    </div>
+
+    @if (lastResult != null)
+    {
+        <div class="last-turn-box">
+            <div class="pot-header">Last throw:</div>
+            <div class="cards-played">
+                @foreach (var (player, card) in lastResult.InitialDraw)
+                {
+                    <span class="card-chip @(lastResult.TurnWinnerId == player ? "card-winner" : "")">
+                        P@(player + 1): @card
+                    </span>
+                }
+            </div>
+            @if (lastResult.WarRounds?.Count > 0)
+            {
+                <div class="war-indicator">⚔️ War! (@lastResult.WarRounds.Count round(s))</div>
+            }
+            @if (lastResult.TurnWinnerId.HasValue)
+            {
+                <div class="pot-winner">→ Player @(lastResult.TurnWinnerId.Value + 1) takes the pot</div>
+            }
+        </div>
+    }
+
+    <div class="hands-grid">
+        @for (int i = 0; i < game!.PlayerCount; i++)
+        {
+            var idx = i;
+            var count = game.Hands[idx].Count;
+            var isWinner = game.GameWinnerId == idx;
+            <div class="hand-col @(isWinner ? "hand-winner" : "") @(count == 0 ? "hand-out" : "")">
+                <div class="hand-label">Player @(idx + 1)</div>
+                <div class="hand-count">@count cards</div>
+                @if (count == 0 && !gameOver)
+                {
+                    <div class="hand-out-label">Out</div>
+                }
+                @if (isWinner)
+                {
+                    <div class="hand-out-label">Winner!</div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private int playerCount = 2;
+    private bool shuffleWon = true;
+    private bool gameStarted = false;
+    private bool gameOver = false;
+    private bool autoPlaying = false;
+    private int autoIntervalMs = 300;
+    private int currentTurn = 0;
+
+    private WarGame? game;
+    private TurnResult? lastResult;
+    private Timer? autoTimer;
+
+    private void StartGame()
+    {
+        game = new WarGame(playerCount, shuffleWon);
+        game.Reset();
+        gameStarted = true;
+        gameOver = false;
+        currentTurn = 0;
+        lastResult = null;
+    }
+
+    private void ThrowOnce()
+    {
+        if (game == null || gameOver) return;
+        lastResult = game.PlayTurn();
+        currentTurn = game.Turn;
+        if (game.Result != GameResult.InProgress)
+        {
+            gameOver = true;
+            StopAuto();
+        }
+    }
+
+    private void ToggleAuto()
+    {
+        if (autoPlaying) StopAuto();
+        else StartAuto();
+    }
+
+    private void StartAuto()
+    {
+        autoPlaying = true;
+        autoTimer = new Timer(autoIntervalMs);
+        autoTimer.Elapsed += OnAutoTick;
+        autoTimer.AutoReset = true;
+        autoTimer.Start();
+    }
+
+    private void StopAuto()
+    {
+        autoPlaying = false;
+        autoTimer?.Stop();
+        autoTimer?.Dispose();
+        autoTimer = null;
+    }
+
+    private void OnAutoTick(object? sender, ElapsedEventArgs e)
+    {
+        InvokeAsync(() =>
+        {
+            ThrowOnce();
+            StateHasChanged();
+        });
+    }
+
+    private void NewGame()
+    {
+        StopAuto();
+        gameStarted = false;
+        gameOver = false;
+        lastResult = null;
+        currentTurn = 0;
+        game = null;
+    }
+
+    public void Dispose() => StopAuto();
+}
