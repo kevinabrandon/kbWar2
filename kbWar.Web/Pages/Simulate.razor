@@ -53,7 +53,10 @@
     private int gamesRun = 0;
     private double progressPct => totalGames > 0 ? (100.0 * gamesRun / totalGames) : 0;
 
-    private List<SimulationResult> results = [];
+    private record GameRecord(int Turns, int Winner, bool Loop,
+        kbCardGameWar.GameCounters Counters);
+
+    private List<GameRecord> results = [];
 
     private const int BatchSize = 50;
 
@@ -72,8 +75,14 @@
             int batch = Math.Min(BatchSize, remaining);
             for (int i = 0; i < batch && !cancelled; i++)
             {
-                var game = new WarGame(playerCount, shuffleWon, rng);
-                results.Add(game.RunToCompletion());
+                var game = new kbCardGameWar(playerCount, rng);
+                game.ShuffleRecentlyWonCards = shuffleWon;
+                game.ShuffleDeck();
+                game.Deal();
+                game.PlayTillFinished();
+
+                bool loop = game.State == kbCardGameWar.GameState.eInfiniteLoop;
+                results.Add(new GameRecord(game.Counters.nTurns, game.Winner, loop, game.Counters));
                 gamesRun++;
             }
             remaining -= batch;
@@ -90,13 +99,13 @@
     {
         if (results.Count == 0) return "";
 
-        var finished = results.Where(r => !r.WasInfiniteLoop).ToList();
-        var loops = results.Count - finished.Count;
-        var turns = finished.Select(r => r.TotalTurns).ToList();
+        var finished = results.Where(r => !r.Loop).ToList();
+        int loops = results.Count - finished.Count;
+        var turns = finished.Select(r => r.Turns).ToList();
 
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine($"kbWar2 Simulation Results");
-        sb.AppendLine($"=========================");
+        sb.AppendLine("kbWar2 Simulation Results");
+        sb.AppendLine("=========================");
         sb.AppendLine($"Players:              {playerCount}");
         sb.AppendLine($"Shuffle won cards:    {(shuffleWon ? "yes" : "no")}");
         sb.AppendLine($"Games simulated:      {results.Count:N0}");
@@ -106,51 +115,56 @@
 
         if (turns.Count > 0)
         {
-            sb.AppendLine($"Turn statistics (completed games):");
-            sb.AppendLine($"  Min:    {turns.Min():N0}");
-            sb.AppendLine($"  Max:    {turns.Max():N0}");
-            sb.AppendLine($"  Mean:   {turns.Average():N1}");
             var sorted = turns.OrderBy(t => t).ToList();
+            sb.AppendLine("Turn statistics (completed games):");
+            sb.AppendLine($"  Min:    {sorted[0]:N0}");
+            sb.AppendLine($"  Max:    {sorted[^1]:N0}");
+            sb.AppendLine($"  Mean:   {turns.Average():N1}");
             sb.AppendLine($"  Median: {sorted[sorted.Count / 2]:N0}");
             sb.AppendLine();
 
-            // Win rate per player
+            // War depth breakdown
+            sb.AppendLine("War depth totals (across all games):");
+            sb.AppendLine($"  Total wars:      {finished.Sum(r => r.Counters.nTotalWars):N0}");
+            sb.AppendLine($"  Single wars:     {finished.Sum(r => r.Counters.nSingleWars):N0}");
+            sb.AppendLine($"  Double wars:     {finished.Sum(r => r.Counters.nDoubleWars):N0}");
+            sb.AppendLine($"  Triple wars:     {finished.Sum(r => r.Counters.nTripleWars):N0}");
+            sb.AppendLine($"  Quadruple wars:  {finished.Sum(r => r.Counters.nQuadrupleWars):N0}");
+            sb.AppendLine($"  Quintuple wars:  {finished.Sum(r => r.Counters.nQuintupleWars):N0}");
+            sb.AppendLine($"  Sextuple wars:   {finished.Sum(r => r.Counters.nSextupleWars):N0}");
+            sb.AppendLine($"  Septuple wars:   {finished.Sum(r => r.Counters.nSeptupleWars):N0}");
+            sb.AppendLine();
+
+            // Win rates
             if (playerCount <= 10)
             {
                 sb.AppendLine("Win rates:");
-                var winners = finished.Where(r => r.WinnerId.HasValue)
-                    .GroupBy(r => r.WinnerId!.Value)
-                    .OrderBy(g => g.Key)
+                var winners = finished.Where(r => r.Winner >= 0)
+                    .GroupBy(r => r.Winner)
                     .ToDictionary(g => g.Key, g => g.Count());
                 for (int p = 0; p < playerCount; p++)
                 {
                     int wins = winners.GetValueOrDefault(p, 0);
-                    double pct = 100.0 * wins / finished.Count;
-                    sb.AppendLine($"  Player {p + 1}: {wins,6:N0}  ({pct:F1}%)");
+                    sb.AppendLine($"  Player {p + 1}: {wins,6:N0}  ({100.0 * wins / finished.Count:F1}%)");
                 }
                 sb.AppendLine();
             }
 
-            // Histogram of game lengths (10 buckets)
+            // Histogram
             sb.AppendLine("Game length distribution:");
-            int min = turns.Min(), max = turns.Max();
-            int buckets = 10;
+            int min = sorted[0], max = sorted[^1];
             if (max > min)
             {
-                double bucketWidth = (double)(max - min) / buckets;
+                int buckets = 10;
+                double w = (double)(max - min) / buckets;
                 var counts = new int[buckets];
                 foreach (var t in turns)
-                {
-                    int b = Math.Min((int)((t - min) / bucketWidth), buckets - 1);
-                    counts[b]++;
-                }
+                    counts[Math.Min((int)((t - min) / w), buckets - 1)]++;
                 int maxCount = counts.Max();
-                int barWidth = 30;
                 for (int b = 0; b < buckets; b++)
                 {
-                    int lo = (int)(min + b * bucketWidth);
-                    int hi = (int)(min + (b + 1) * bucketWidth);
-                    int bar = maxCount > 0 ? (counts[b] * barWidth / maxCount) : 0;
+                    int lo = (int)(min + b * w), hi = (int)(min + (b + 1) * w);
+                    int bar = maxCount > 0 ? counts[b] * 30 / maxCount : 0;
                     sb.AppendLine($"  {lo,6}–{hi,-6} |{"".PadLeft(bar, '#')}  {counts[b]:N0}");
                 }
             }

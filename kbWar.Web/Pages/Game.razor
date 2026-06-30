@@ -35,54 +35,54 @@
     }
 </div>
 
-@if (gameStarted)
+@if (gameStarted && game != null)
 {
     <div class="game-stats">
-        <span>Turn: <strong>@currentTurn</strong></span>
-        @if (lastResult != null && lastResult.WarRounds?.Count > 0)
+        <span>Turn: <strong>@game.Counters.nTurns</strong></span>
+        @if (game.Counters.nTotalWars > lastWarCount)
         {
             <span class="badge bg-danger ms-2">WAR!</span>
         }
         @if (gameOver)
         {
             <span class="badge bg-primary ms-2">
-                @(game!.Result == GameResult.InfiniteLoop
+                @(game.State == kbCardGameWar.GameState.eInfiniteLoop
                     ? "Infinite loop detected"
-                    : $"Player {(game.GameWinnerId!.Value + 1)} wins!")
+                    : $"Player {game.Winner + 1} wins!")
             </span>
         }
     </div>
 
-    @if (lastResult != null)
+    @if (game.MostRecentWinners.Count > 0)
     {
         <div class="last-turn-box">
             <div class="pot-header">Last throw:</div>
-            <div class="cards-played">
-                @foreach (var (player, card) in lastResult.InitialDraw)
+            <div class="pot-winner">
+                @if (game.MostRecentWinners.Count > 1)
                 {
-                    <span class="card-chip @(lastResult.TurnWinnerId == player ? "card-winner" : "")">
-                        P@(player + 1): @card
-                    </span>
+                    <span class="war-indicator">TIE — </span>
+                }
+                @foreach (var w in game.MostRecentWinners)
+                {
+                    <span>Player @(w + 1) wins pot&nbsp;</span>
                 }
             </div>
-            @if (lastResult.WarRounds?.Count > 0)
-            {
-                <div class="war-indicator">⚔️ War! (@lastResult.WarRounds.Count round(s))</div>
-            }
-            @if (lastResult.TurnWinnerId.HasValue)
-            {
-                <div class="pot-winner">→ Player @(lastResult.TurnWinnerId.Value + 1) takes the pot</div>
-            }
+            <div class="cards-played">
+                @foreach (var card in wonCards)
+                {
+                    <span class="card-chip">@card</span>
+                }
+            </div>
         </div>
     }
 
     <div class="hands-grid">
-        @for (int i = 0; i < game!.PlayerCount; i++)
+        @for (int i = 0; i < game.nPlayers; i++)
         {
             var idx = i;
-            var count = game.Hands[idx].Count;
-            var isWinner = game.GameWinnerId == idx;
-            <div class="hand-col @(isWinner ? "hand-winner" : "") @(count == 0 ? "hand-out" : "")">
+            var count = game.GetPlayerCount(idx);
+            var isWinner = game.State == kbCardGameWar.GameState.eOverWithWinner && game.Winner == idx;
+            <div class="hand-col @(isWinner ? "hand-winner" : "") @(count == 0 && !gameOver ? "hand-out" : "")">
                 <div class="hand-label">Player @(idx + 1)</div>
                 <div class="hand-count">@count cards</div>
                 @if (count == 0 && !gameOver)
@@ -105,32 +105,45 @@
     private bool gameOver = false;
     private bool autoPlaying = false;
     private int autoIntervalMs = 300;
-    private int currentTurn = 0;
+    private int lastWarCount = 0;
+    private List<string> wonCards = [];
 
-    private WarGame? game;
-    private TurnResult? lastResult;
+    private kbCardGameWar? game;
     private Timer? autoTimer;
 
     private void StartGame()
     {
-        game = new WarGame(playerCount, shuffleWon);
-        game.Reset();
+        game = new kbCardGameWar(playerCount, new Random());
+        game.ShuffleRecentlyWonCards = shuffleWon;
+        game.ShuffleDeck();
+        game.Deal();
         gameStarted = true;
         gameOver = false;
-        currentTurn = 0;
-        lastResult = null;
+        lastWarCount = 0;
+        wonCards = [];
     }
 
     private void ThrowOnce()
     {
         if (game == null || gameOver) return;
-        lastResult = game.PlayTurn();
-        currentTurn = game.Turn;
-        if (game.Result != GameResult.InProgress)
+        lastWarCount = game.Counters.nTotalWars;
+        game.NewTurn();
+        UpdateWonCards();
+        if (game.State != kbCardGameWar.GameState.eCurrentlyPlaying)
         {
             gameOver = true;
             StopAuto();
         }
+    }
+
+    private void UpdateWonCards()
+    {
+        if (game == null) return;
+        var hand = game.MostRecentlyWonCards;
+        wonCards = Enumerable.Range(0, Math.Min(hand.Count, 10))
+            .Select(i => hand[i].ToString().Trim())
+            .ToList();
+        if (hand.Count > 10) wonCards.Add($"… +{hand.Count - 10} more");
     }
 
     private void ToggleAuto()
@@ -158,11 +171,7 @@
 
     private void OnAutoTick(object? sender, ElapsedEventArgs e)
     {
-        InvokeAsync(() =>
-        {
-            ThrowOnce();
-            StateHasChanged();
-        });
+        InvokeAsync(() => { ThrowOnce(); StateHasChanged(); });
     }
 
     private void NewGame()
@@ -170,8 +179,8 @@
         StopAuto();
         gameStarted = false;
         gameOver = false;
-        lastResult = null;
-        currentTurn = 0;
+        lastWarCount = 0;
+        wonCards = [];
         game = null;
     }
 

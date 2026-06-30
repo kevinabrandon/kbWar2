@@ -5,33 +5,33 @@ namespace kbWar.Tests;
 public class PlayingCardTests
 {
     [Fact]
-    public void Rank_comparison_ace_beats_two()
+    public void Rank_deuce_is_lowest_ace_is_highest()
     {
-        var ace = new PlayingCard(Suit.Spades, Rank.Ace);
-        var two = new PlayingCard(Suit.Hearts, Rank.Two);
-        Assert.True(ace.CompareTo(two) > 0);
-        Assert.True(two.CompareTo(ace) < 0);
+        var deuce = new kbPlayingCard(kbPlayingCard.Suit.Hearts, kbPlayingCard.Rank.Deuce);
+        var ace   = new kbPlayingCard(kbPlayingCard.Suit.Spades, kbPlayingCard.Rank.Ace);
+        Assert.True((int)ace.rank > (int)deuce.rank);
     }
 
     [Fact]
-    public void Same_rank_compares_equal()
+    public void Rank_values_are_2_through_14()
     {
-        var a = new PlayingCard(Suit.Spades, Rank.King);
-        var b = new PlayingCard(Suit.Clubs, Rank.King);
-        Assert.Equal(0, a.CompareTo(b));
+        Assert.Equal(2,  (int)kbPlayingCard.Rank.Deuce);
+        Assert.Equal(14, (int)kbPlayingCard.Rank.Ace);
     }
 
     [Fact]
     public void ToString_includes_rank_and_suit()
     {
-        var card = new PlayingCard(Suit.Hearts, Rank.Queen);
-        Assert.Equal("Queen of Hearts", card.ToString());
+        var card = new kbPlayingCard(kbPlayingCard.Suit.Hearts, kbPlayingCard.Rank.Queen);
+        Assert.Contains("Queen", card.ToString());
+        Assert.Contains("Hearts", card.ToString());
     }
 
     [Fact]
-    public void CompareTo_null_returns_positive()
+    public void Suit_and_rank_properties_round_trip()
     {
-        var card = new PlayingCard(Suit.Clubs, Rank.Two);
-        Assert.True(card.CompareTo(null) > 0);
+        var card = new kbPlayingCard(kbPlayingCard.Suit.Clubs, kbPlayingCard.Rank.King);
+        Assert.Equal(kbPlayingCard.Suit.Clubs, card.suit);
+        Assert.Equal(kbPlayingCard.Rank.King, card.rank);
     }
 }

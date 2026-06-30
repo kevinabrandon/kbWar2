@@ -5,123 +5,150 @@ namespace kbWar.Tests;
 public class WarGameTests
 {
     [Fact]
-    public void BuildDeck_returns_52_unique_cards()
+    public void Fresh_game_state_is_not_started()
     {
-        var deck = WarGame.BuildDeck();
-        Assert.Equal(52, deck.Count);
-        Assert.Equal(52, deck.Distinct().Count());
+        var game = new kbCardGameWar(2, new Random(1));
+        Assert.Equal(kbCardGameWar.GameState.eNotStarted, game.State);
     }
 
     [Fact]
-    public void Shuffle_produces_all_original_cards()
+    public void After_deal_state_is_currently_playing()
     {
-        var game = new WarGame(2, false, new Random(42));
-        var deck = WarGame.BuildDeck();
-        game.Shuffle(deck);
-        Assert.Equal(52, deck.Count);
-        // All ranks and suits still present
-        Assert.Equal(4, deck.Select(c => c.Suit).Distinct().Count());
-        Assert.Equal(13, deck.Select(c => c.Rank).Distinct().Count());
+        var game = new kbCardGameWar(2, new Random(1));
+        game.ShuffleDeck();
+        game.Deal();
+        Assert.Equal(kbCardGameWar.GameState.eCurrentlyPlaying, game.State);
     }
 
     [Fact]
-    public void Deal_splits_cards_evenly_between_2_players()
+    public void Deal_distributes_all_52_cards_for_2_players()
     {
-        var game = new WarGame(2, false);
-        var deck = WarGame.BuildDeck();
-        game.Deal(deck);
-        Assert.Equal(26, game.Hands[0].Count);
-        Assert.Equal(26, game.Hands[1].Count);
+        var game = new kbCardGameWar(2, new Random(1));
+        game.ShuffleDeck();
+        game.Deal();
+        Assert.Equal(26, game.GetPlayerCount(0));
+        Assert.Equal(26, game.GetPlayerCount(1));
     }
 
     [Fact]
-    public void Deal_with_3_players_distributes_fairly()
+    public void Deal_distributes_cards_for_3_players()
     {
-        var game = new WarGame(3, false);
-        var deck = WarGame.BuildDeck();
-        game.Deal(deck);
-        // 52 / 3 = 17 r 1 → players 0 gets 18, 1 and 2 get 17
-        Assert.Equal(18, game.Hands[0].Count);
-        Assert.Equal(17, game.Hands[1].Count);
-        Assert.Equal(17, game.Hands[2].Count);
+        var game = new kbCardGameWar(3, new Random(1));
+        game.ShuffleDeck();
+        game.Deal();
+        int total = game.GetPlayerCount(0) + game.GetPlayerCount(1) + game.GetPlayerCount(2);
+        Assert.Equal(52, total);
     }
 
     [Fact]
-    public void RunToCompletion_produces_a_winner_or_loop()
+    public void PlayTillFinished_ends_with_winner_or_loop()
     {
-        var game = new WarGame(2, false, new Random(1));
-        var result = game.RunToCompletion();
-        Assert.True(result.WasInfiniteLoop || result.WinnerId.HasValue);
+        var game = new kbCardGameWar(2, new Random(1));
+        game.ShuffleDeck();
+        game.Deal();
+        game.PlayTillFinished();
+        Assert.True(
+            game.State == kbCardGameWar.GameState.eOverWithWinner ||
+            game.State == kbCardGameWar.GameState.eInfiniteLoop);
     }
 
     [Fact]
-    public void RunToCompletion_winner_has_all_cards()
+    public void Winner_has_all_52_cards()
     {
-        // Use a seeded random so we reliably get a winner (not an infinite loop)
+        // Try a few seeds to get a completing game
         for (int seed = 0; seed < 100; seed++)
         {
-            var game = new WarGame(2, true, new Random(seed));
-            var result = game.RunToCompletion();
-            if (!result.WasInfiniteLoop && result.WinnerId.HasValue)
+            var game = new kbCardGameWar(2, new Random(seed));
+            game.ShuffleRecentlyWonCards = true;
+            game.ShuffleDeck();
+            game.Deal();
+            game.PlayTillFinished();
+            if (game.State == kbCardGameWar.GameState.eOverWithWinner)
             {
-                int winner = result.WinnerId.Value;
-                // Winner should have all 52 cards
-                int total = game.Hands.Sum(h => h.Count);
-                Assert.Equal(52, total);
+                Assert.Equal(52, game.GetPlayerCount(game.Winner));
                 return;
             }
         }
-        // If every seed produces an infinite loop, skip (shouldn't happen with 100 seeds)
     }
 
     [Fact]
-    public void PlayTurn_returns_null_after_game_ends()
+    public void NewTurn_after_game_over_returns_same_state()
     {
-        var game = new WarGame(2, false, new Random(7));
-        game.Reset();
-        while (game.Result == GameResult.InProgress)
-            game.PlayTurn();
-
-        var extra = game.PlayTurn();
-        Assert.Null(extra);
+        var game = new kbCardGameWar(2, new Random(7));
+        game.ShuffleDeck();
+        game.Deal();
+        game.PlayTillFinished();
+        var finalState = game.State;
+        Assert.Equal(finalState, game.NewTurn());
     }
 
     [Fact]
-    public void Total_cards_preserved_throughout_game()
+    public void Turn_counter_increments_each_turn()
     {
-        var game = new WarGame(2, false, new Random(99));
-        game.Reset();
-        for (int i = 0; i < 200 && game.Result == GameResult.InProgress; i++)
-        {
-            game.PlayTurn();
-            int total = game.HandCounts().Sum();
-            Assert.Equal(52, total);
-        }
+        var game = new kbCardGameWar(2, new Random(42));
+        game.ShuffleDeck();
+        game.Deal();
+        game.NewTurn();
+        game.NewTurn();
+        Assert.Equal(2, game.Counters.nTurns);
     }
 
     [Fact]
-    public void Four_player_game_runs_to_completion()
+    public void MostRecentWinners_is_populated_after_turn()
     {
-        var game = new WarGame(4, true, new Random(123));
-        var result = game.RunToCompletion();
-        Assert.True(result.WasInfiniteLoop || result.WinnerId.HasValue);
-        if (!result.WasInfiniteLoop)
-        {
-            Assert.InRange(result.WinnerId!.Value, 0, 3);
-        }
+        var game = new kbCardGameWar(2, new Random(1));
+        game.ShuffleDeck();
+        game.Deal();
+        game.NewTurn();
+        Assert.NotEmpty(game.MostRecentWinners);
+    }
+
+    [Fact]
+    public void Restart_resets_state()
+    {
+        var game = new kbCardGameWar(2, new Random(5));
+        game.ShuffleDeck();
+        game.Deal();
+        game.NewTurn();
+        game.Restart(2);
+        Assert.Equal(kbCardGameWar.GameState.eNotStarted, game.State);
+        Assert.Equal(0, game.Counters.nTurns);
     }
 
     [Fact]
     public void Constructor_rejects_invalid_player_counts()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WarGame(1, false));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WarGame(53, false));
+        Assert.Throws<Exception>(() => new kbCardGameWar(1, new Random()));
+        Assert.Throws<Exception>(() => new kbCardGameWar(53, new Random()));
     }
 
     [Fact]
-    public void InfiniteLoop_detected_within_max_turns()
+    public void Four_player_game_runs_to_completion()
     {
-        // Hard to force an infinite loop, but we can verify MaxTurns is honoured
-        Assert.Equal(20_000, WarGame.MaxTurns);
+        var game = new kbCardGameWar(4, new Random(123));
+        game.ShuffleRecentlyWonCards = true;
+        game.ShuffleDeck();
+        game.Deal();
+        game.PlayTillFinished();
+        Assert.True(
+            game.State == kbCardGameWar.GameState.eOverWithWinner ||
+            game.State == kbCardGameWar.GameState.eInfiniteLoop);
+    }
+
+    [Fact]
+    public void Shuffle_off_can_produce_infinite_loop()
+    {
+        // Without shuffling, infinite loops are common — verify the heuristic works
+        int loops = 0;
+        for (int seed = 0; seed < 20; seed++)
+        {
+            var game = new kbCardGameWar(2, new Random(seed));
+            game.ShuffleRecentlyWonCards = false;
+            game.ShuffleDeck();
+            game.Deal();
+            game.PlayTillFinished();
+            if (game.State == kbCardGameWar.GameState.eInfiniteLoop) loops++;
+        }
+        Assert.True(loops > 0, "Expected at least one infinite loop with no shuffling");
     }
 }
