@@ -1,5 +1,6 @@
 @page "/game"
 @using System.Timers
+@using System.Net
 @implements IDisposable
 
 <PageTitle>Play — kbWar2</PageTitle>
@@ -9,7 +10,8 @@
 <div class="game-controls">
     <label>
         Players:
-        <input type="number" min="2" max="52" @bind="playerCount" @bind:event="oninput" disabled="@gameStarted" class="player-count-input" />
+        <input type="number" min="2" max="52" @bind="playerCount" @bind:event="oninput"
+               disabled="@gameStarted" class="player-count-input" />
     </label>
     <label>
         <input type="checkbox" @bind="shuffleWon" disabled="@gameStarted" />
@@ -28,7 +30,8 @@
         </button>
         <label class="ms-2">
             Speed:
-            <input type="range" min="50" max="1000" step="50" @bind="autoIntervalMs" @bind:event="oninput" />
+            <input type="range" min="50" max="1000" step="50"
+                   @bind="autoIntervalMs" @bind:event="oninput" />
             @autoIntervalMs ms
         </label>
         <button class="btn btn-secondary ms-3" @onclick="NewGame">New Game</button>
@@ -37,65 +40,70 @@
 
 @if (gameStarted && game != null)
 {
-    <div class="game-stats">
+    <div class="game-status-bar">
         <span>Turn: <strong>@game.Counters.nTurns</strong></span>
-        @if (game.Counters.nTotalWars > lastWarCount)
-        {
-            <span class="badge bg-danger ms-2">WAR!</span>
-        }
+        <span class="ms-3">Wars: <strong>@game.Counters.nTotalWars</strong></span>
         @if (gameOver)
         {
-            <span class="badge bg-primary ms-2">
-                @(game.State == kbCardGameWar.GameState.eInfiniteLoop
-                    ? "Infinite loop detected"
-                    : $"Player {game.Winner + 1} wins!")
-            </span>
+            @if (game.State == kbCardGameWar.GameState.eInfiniteLoop)
+            {
+                <span class="status-badge status-loop">Infinite loop detected</span>
+            }
+            else
+            {
+                <span class="status-badge" style="background:@PlayerColor(game.Winner);color:#000">
+                    PLAYER @(game.Winner + 1) WINS!!!
+                </span>
+            }
         }
     </div>
 
-    @if (game.MostRecentWinners.Count > 0)
-    {
-        <div class="last-turn-box">
-            <div class="pot-header">Last throw:</div>
-            <div class="pot-winner">
+    <div class="game-area">
+        <!-- Pot panel -->
+        <div class="pot-panel">
+            <div class="pot-panel-header">Pot</div>
+            @if (game.MostRecentWinners.Count > 0)
+            {
                 @if (game.MostRecentWinners.Count > 1)
                 {
-                    <span class="war-indicator">TIE — </span>
+                    <div class="pot-tie">TIE!!</div>
                 }
                 @foreach (var w in game.MostRecentWinners)
                 {
-                    <span>Player @(w + 1) wins pot&nbsp;</span>
+                    <div class="pot-winner-label" style="background:@PlayerColor(w);color:#000">
+                        Player @(w + 1) Won:
+                    </div>
                 }
-            </div>
-            <div class="cards-played">
-                @foreach (var card in wonCards)
-                {
-                    <span class="card-chip">@card</span>
-                }
-            </div>
+                <pre class="hand-pre">@ColoredHand(game.MostRecentlyWonCards.ToString())</pre>
+            }
         </div>
-    }
 
-    <div class="hands-grid">
-        @for (int i = 0; i < game.nPlayers; i++)
-        {
-            var idx = i;
-            var count = game.GetPlayerCount(idx);
-            var isWinner = game.State == kbCardGameWar.GameState.eOverWithWinner && game.Winner == idx;
-            <div class="hand-col @(isWinner ? "hand-winner" : "") @(count == 0 && !gameOver ? "hand-out" : "")">
-                <div class="hand-label">Player @(idx + 1)</div>
-                <div class="hand-count">@count cards</div>
-                @if (count == 0 && !gameOver)
+        <!-- Player columns -->
+        <div class="hands-scroll">
+            @for (int i = 0; i < game.nPlayers; i++)
+            {
+                int idx = i;
+                int count = game.GetPlayerCount(idx);
+                bool isOut = count == 0;
+                bool isWinner = game.State == kbCardGameWar.GameState.eOverWithWinner && game.Winner == idx;
+
+                @if (!isOut || showEmptyHands)
                 {
-                    <div class="hand-out-label">Out</div>
+                    <div class="player-col @(isOut ? "player-col-out" : "") @(isWinner ? "player-col-winner" : "")">
+                        <div class="player-col-label" style="background:@PlayerColor(idx);color:#000">
+                            Player @(idx + 1)
+                        </div>
+                        <div class="player-col-count">@count cards</div>
+                        <pre class="hand-pre">@ColoredHand(game.GetPlayer(idx))</pre>
+                    </div>
                 }
-                @if (isWinner)
-                {
-                    <div class="hand-out-label">Winner!</div>
-                }
-            </div>
-        }
+            }
+        </div>
     </div>
+
+    <label class="show-empty-toggle">
+        <input type="checkbox" @bind="showEmptyHands" /> Show empty hands
+    </label>
 }
 
 @code {
@@ -104,9 +112,8 @@
     private bool gameStarted = false;
     private bool gameOver = false;
     private bool autoPlaying = false;
+    private bool showEmptyHands = false;
     private int autoIntervalMs = 300;
-    private int lastWarCount = 0;
-    private List<string> wonCards = [];
 
     private kbCardGameWar? game;
     private Timer? autoTimer;
@@ -119,31 +126,17 @@
         game.Deal();
         gameStarted = true;
         gameOver = false;
-        lastWarCount = 0;
-        wonCards = [];
     }
 
     private void ThrowOnce()
     {
         if (game == null || gameOver) return;
-        lastWarCount = game.Counters.nTotalWars;
         game.NewTurn();
-        UpdateWonCards();
         if (game.State != kbCardGameWar.GameState.eCurrentlyPlaying)
         {
             gameOver = true;
             StopAuto();
         }
-    }
-
-    private void UpdateWonCards()
-    {
-        if (game == null) return;
-        var hand = game.MostRecentlyWonCards;
-        wonCards = Enumerable.Range(0, Math.Min(hand.Count, 10))
-            .Select(i => hand[i].ToString().Trim())
-            .ToList();
-        if (hand.Count > 10) wonCards.Add($"… +{hand.Count - 10} more");
     }
 
     private void ToggleAuto()
@@ -179,9 +172,26 @@
         StopAuto();
         gameStarted = false;
         gameOver = false;
-        lastWarCount = 0;
-        wonCards = [];
         game = null;
+    }
+
+    private string PlayerColor(int i)
+    {
+        if (game == null || game.nPlayers == 0) return "#888";
+        double hue = 360.0 * i / game.nPlayers;
+        return $"hsl({hue:F0}, 100%, 50%)";
+    }
+
+    private MarkupString ColoredHand(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return new MarkupString("");
+        var html = WebUtility.HtmlEncode(text)
+            .Replace("Ace",      "<span class='c-ace'>Ace</span>")
+            .Replace("Hearts",   "<span class='c-red-suit'>Hearts</span>")
+            .Replace("Diamonds", "<span class='c-red-suit'>Diamonds</span>")
+            .Replace("Spades",   "<span class='c-blk-suit'>Spades</span>")
+            .Replace("Clubs",    "<span class='c-blk-suit'>Clubs</span>");
+        return new MarkupString(html);
     }
 
     public void Dispose() => StopAuto();
