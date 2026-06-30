@@ -143,6 +143,70 @@ a, .btn-link { color: #4fc3f7; }
 .answers-table td:first-child { color: #aaa; width: 40%; }
 .footnote { font-size: 0.8rem; color: #888; margin-top: 0.5rem; }
 
+/* Game page — full-hand visualization */
+.game-status-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 1rem;
+    background: #12122a; padding: 0.6rem 1rem; border-radius: 4px;
+    margin-bottom: 0.75rem; font-size: 0.95rem;
+}
+.status-badge {
+    padding: 0.2rem 0.7rem; border-radius: 3px; font-weight: bold;
+    font-size: 0.9rem; margin-left: auto;
+}
+.status-loop { background: #b71c1c; color: #fff; }
+
+.game-area {
+    display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 0.75rem;
+}
+
+.pot-panel {
+    flex: 0 0 220px; background: #12122a; border: 1px solid #555;
+    border-radius: 4px; padding: 0.75rem; min-height: 80px;
+}
+.pot-panel-header {
+    font-weight: bold; color: #aaa; margin-bottom: 0.5rem;
+    font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.pot-tie {
+    color: #ef5350; font-weight: bold; font-size: 1.1rem; margin-bottom: 0.25rem;
+}
+.pot-winner-label {
+    display: inline-block; padding: 0.1rem 0.5rem; border-radius: 3px;
+    font-size: 0.85rem; font-weight: bold; margin-bottom: 0.25rem;
+}
+
+.hands-scroll {
+    flex: 1 1 0; display: flex; flex-wrap: nowrap; gap: 0.5rem;
+    overflow-x: auto; align-items: flex-start;
+}
+
+.player-col {
+    flex: 0 0 auto; background: #12122a; border: 1px solid #444;
+    border-radius: 4px; padding: 0.5rem 0.6rem; min-width: 130px;
+}
+.player-col-out { opacity: 0.35; }
+.player-col-winner { border-color: #ffd600; }
+.player-col-label {
+    display: block; text-align: center; font-weight: bold;
+    font-size: 0.8rem; padding: 0.15rem 0.4rem; border-radius: 3px;
+    margin-bottom: 0.3rem;
+}
+.player-col-count {
+    text-align: center; font-size: 0.75rem; color: #aaa; margin-bottom: 0.3rem;
+}
+
+.hand-pre {
+    margin: 0; font-size: 0.78rem; line-height: 1.4; white-space: pre;
+    color: #e0e0e0;
+}
+
+.show-empty-toggle { font-size: 0.85rem; color: #aaa; }
+
+/* Card coloring — matching original WinForms palette */
+.c-ace      { background: #adff2f; color: #c00000; font-weight: bold; }
+.c-red-suit { background: #c00000; color: #fff; }
+.c-blk-suit { background: #222;    color: #e0e0e0; }
+
 /* Nav overrides */
 .navbar { background-color: #0d0d1a !important; border-bottom: 1px solid #333; }
 .navbar-brand { color: #4fc3f7 !important; font-weight: bold; letter-spacing: 0.05em; }
