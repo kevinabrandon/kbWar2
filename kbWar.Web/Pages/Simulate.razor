@@ -11,7 +11,7 @@
     </label>
     <label>
         Games to simulate:
-        <input type="number" min="1" max="100000" @bind="totalGames" disabled="@running" class="games-input" />
+        <input type="number" min="1" max="1000000" @bind="totalGames" disabled="@running" class="games-input" />
     </label>
     <label>
         <input type="checkbox" @bind="shuffleWon" disabled="@running" />
@@ -53,11 +53,8 @@
     private int gamesRun = 0;
     private double progressPct => totalGames > 0 ? (100.0 * gamesRun / totalGames) : 0;
 
-    private record GameRecord(int Turns, int Winner, bool Loop,
-        kbCardGameWar.GameCounters Counters);
-
+    private record GameRecord(int Winner, bool Loop, kbCardGameWar.GameCounters Counters);
     private List<GameRecord> results = [];
-
     private const int BatchSize = 50;
 
     private async Task RunSimulation()
@@ -68,6 +65,8 @@
         results = [];
 
         var rng = new Random();
+        var game = new kbCardGameWar(playerCount, rng);
+        game.ShuffleRecentlyWonCards = shuffleWon;
         int remaining = totalGames;
 
         while (remaining > 0 && !cancelled)
@@ -75,14 +74,13 @@
             int batch = Math.Min(BatchSize, remaining);
             for (int i = 0; i < batch && !cancelled; i++)
             {
-                var game = new kbCardGameWar(playerCount, rng);
-                game.ShuffleRecentlyWonCards = shuffleWon;
+                game.Restart(playerCount);
                 game.ShuffleDeck();
                 game.Deal();
                 game.PlayTillFinished();
 
                 bool loop = game.State == kbCardGameWar.GameState.eInfiniteLoop;
-                results.Add(new GameRecord(game.Counters.nTurns, game.Winner, loop, game.Counters));
+                results.Add(new GameRecord(game.Winner, loop, game.Counters));
                 gamesRun++;
             }
             remaining -= batch;
@@ -99,81 +97,81 @@
     {
         if (results.Count == 0) return "";
 
-        var finished = results.Where(r => !r.Loop).ToList();
-        int loops = results.Count - finished.Count;
-        var turns = finished.Select(r => r.Turns).ToList();
-
+        int nGames = results.Count;
+        int loops = results.Count(r => r.Loop);
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine("kbWar2 Simulation Results");
-        sb.AppendLine("=========================");
-        sb.AppendLine($"Players:              {playerCount}");
-        sb.AppendLine($"Shuffle won cards:    {(shuffleWon ? "yes" : "no")}");
-        sb.AppendLine($"Games simulated:      {results.Count:N0}");
-        sb.AppendLine($"Completed (winner):   {finished.Count:N0}");
-        sb.AppendLine($"Infinite loops:       {loops:N0}");
+
+        sb.AppendLine("Number of games played: " + nGames.ToString("N0"));
+        sb.AppendLine(shuffleWon
+            ? "Shuffle the winning cards every turn"
+            : "Perfect play, no shuffling of cards between turns, infinate loops possible!");
+
+        for (int p = 0; p < playerCount; p++)
+        {
+            int wins = results.Count(r => r.Winner == p);
+            sb.AppendLine("Player " + (p + 1) + " wins: " + wins.ToString("N0"));
+        }
+        sb.AppendLine("Number of infinite loops: " + loops.ToString("N0"));
         sb.AppendLine();
 
-        if (turns.Count > 0)
-        {
-            var sorted = turns.OrderBy(t => t).ToList();
-            sb.AppendLine("Turn statistics (completed games):");
-            sb.AppendLine($"  Min:    {sorted[0]:N0}");
-            sb.AppendLine($"  Max:    {sorted[^1]:N0}");
-            sb.AppendLine($"  Mean:   {turns.Average():N1}");
-            sb.AppendLine($"  Median: {sorted[sorted.Count / 2]:N0}");
-            sb.AppendLine();
+        // Throws: zeros are placeholders for infinite-loop games; exclude them from min/avg/total
+        AppendStat(sb, "throws", "throws",
+            results.Select(r => r.Loop ? 0 : r.Counters.nTurns).ToList(),
+            hasMin: true, infiniteLoops: loops);
 
-            // War depth breakdown
-            sb.AppendLine("War depth totals (across all games):");
-            sb.AppendLine($"  Total wars:      {finished.Sum(r => r.Counters.nTotalWars):N0}");
-            sb.AppendLine($"  Single wars:     {finished.Sum(r => r.Counters.nSingleWars):N0}");
-            sb.AppendLine($"  Double wars:     {finished.Sum(r => r.Counters.nDoubleWars):N0}");
-            sb.AppendLine($"  Triple wars:     {finished.Sum(r => r.Counters.nTripleWars):N0}");
-            sb.AppendLine($"  Quadruple wars:  {finished.Sum(r => r.Counters.nQuadrupleWars):N0}");
-            sb.AppendLine($"  Quintuple wars:  {finished.Sum(r => r.Counters.nQuintupleWars):N0}");
-            sb.AppendLine($"  Sextuple wars:   {finished.Sum(r => r.Counters.nSextupleWars):N0}");
-            sb.AppendLine($"  Septuple wars:   {finished.Sum(r => r.Counters.nSeptupleWars):N0}");
-            sb.AppendLine();
+        AppendStat(sb, "total wars", "total wars",
+            results.Select(r => r.Counters.nTotalWars).ToList(), hasMin: true);
 
-            // Win rates
-            if (playerCount <= 10)
-            {
-                sb.AppendLine("Win rates:");
-                var winners = finished.Where(r => r.Winner >= 0)
-                    .GroupBy(r => r.Winner)
-                    .ToDictionary(g => g.Key, g => g.Count());
-                for (int p = 0; p < playerCount; p++)
-                {
-                    int wins = winners.GetValueOrDefault(p, 0);
-                    sb.AppendLine($"  Player {p + 1}: {wins,6:N0}  ({100.0 * wins / finished.Count:F1}%)");
-                }
-                sb.AppendLine();
-            }
+        AppendStat(sb, "single wars", "single wars",
+            results.Select(r => r.Counters.nSingleWars).ToList(), hasMin: true);
 
-            // Histogram
-            sb.AppendLine("Game length distribution:");
-            int min = sorted[0], max = sorted[^1];
-            if (max > min)
-            {
-                int buckets = 10;
-                double w = (double)(max - min) / buckets;
-                var counts = new int[buckets];
-                foreach (var t in turns)
-                    counts[Math.Min((int)((t - min) / w), buckets - 1)]++;
-                int maxCount = counts.Max();
-                for (int b = 0; b < buckets; b++)
-                {
-                    int lo = (int)(min + b * w), hi = (int)(min + (b + 1) * w);
-                    int bar = maxCount > 0 ? counts[b] * 30 / maxCount : 0;
-                    sb.AppendLine($"  {lo,6}–{hi,-6} |{"".PadLeft(bar, '#')}  {counts[b]:N0}");
-                }
-            }
-            else
-            {
-                sb.AppendLine($"  All games ended in {min} turns.");
-            }
-        }
+        AppendStat(sb, "double wars", "double wars",
+            results.Select(r => r.Counters.nDoubleWars).ToList());
+
+        AppendStat(sb, "triple wars", "triple wars",
+            results.Select(r => r.Counters.nTripleWars).ToList());
+
+        AppendStat(sb, "quad wars", "quad wars",
+            results.Select(r => r.Counters.nQuadrupleWars).ToList());
+
+        AppendStat(sb, "quintuple wars", "quintuple wars",
+            results.Select(r => r.Counters.nQuintupleWars).ToList());
+
+        AppendStat(sb, "sextuple wars", "sextuple wars",
+            results.Select(r => r.Counters.nSextupleWars).ToList());
+
+        AppendStat(sb, "septuble wars", "septuble wars",
+            results.Select(r => r.Counters.nSeptupleWars).ToList());
 
         return sb.ToString();
+    }
+
+    // Matches the original GetMaxMinAvgCount logic from kbWarMainForm.cs
+    private void AppendStat(System.Text.StringBuilder sb, string perGame, string allGames,
+        List<int> values, bool hasMin = false, int infiniteLoops = 0)
+    {
+        int max = int.MinValue, min = int.MaxValue;
+        long sum = 0;
+
+        foreach (int v in values)
+        {
+            if (infiniteLoops > 0 && v == 0) continue;
+            if (v > max) max = v;
+            if (v < min) min = v;
+            sum += v;
+        }
+
+        if (max == int.MinValue) max = 0;
+        if (min == int.MaxValue) min = 0;
+
+        double avg = (values.Count - infiniteLoops) > 0
+            ? (double)sum / (values.Count - infiniteLoops)
+            : 0;
+
+        sb.AppendLine("Max " + perGame + " in a game: " + max.ToString("N0"));
+        if (hasMin) sb.AppendLine("Min " + perGame + " in a game: " + min.ToString("N0"));
+        sb.AppendLine("Avg " + perGame + " in a game: " + avg.ToString());
+        sb.AppendLine("Total " + allGames + " in all games: " + sum.ToString("N0"));
+        sb.AppendLine();
     }
 }
