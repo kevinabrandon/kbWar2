@@ -127,6 +127,22 @@ a, .btn-link { color: #4fc3f7; }
 }
 .sim-output pre { color: #e0e0e0; font-size: 0.85rem; white-space: pre; overflow-x: auto; }
 
+.sim-chart {
+    background: #0d0d1a; border: 1px solid #333; border-radius: 4px;
+    padding: 1rem; margin-top: 1rem;
+}
+.sim-chart .chart-title { font-weight: bold; color: #e0e0e0; text-align: center; }
+.sim-chart .chart-sub { color: #888; font-size: 0.8rem; text-align: center; margin-bottom: 0.5rem; }
+.sim-chart svg { width: 100%; height: auto; display: block; }
+.hist-table { margin-top: 0.5rem; font-size: 0.85rem; }
+.hist-table summary { color: #888; cursor: pointer; }
+.hist-table table { border-collapse: collapse; margin-top: 0.5rem; }
+.hist-table th, .hist-table td {
+    padding: 0.15rem 0.9rem 0.15rem 0; text-align: right;
+    border-bottom: 1px solid #2a2a3e; color: #aaa;
+}
+.hist-table th { color: #4fc3f7; }
+
 /* Home answers table */
 .answers-table {
     width: 100%; border-collapse: collapse; margin: 1rem 0;

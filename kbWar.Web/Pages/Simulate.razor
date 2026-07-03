@@ -1,4 +1,5 @@
 @page "/simulate"
+@using System.Globalization
 
 <PageTitle>Simulate — kbWar2</PageTitle>
 
@@ -7,11 +8,11 @@
 <div class="sim-controls">
     <label>
         Players:
-        <input type="number" min="2" max="52" @bind="playerCount" disabled="@running" class="player-count-input" />
+        <input type="number" min="2" max="52" @bind="playerCount" @bind:event="oninput" disabled="@running" class="player-count-input" />
     </label>
     <label>
         Games to simulate:
-        <input type="number" min="1" max="1000000" @bind="totalGames" disabled="@running" class="games-input" />
+        <input type="number" min="1" max="1000000" @bind="totalGames" @bind:event="oninput" disabled="@running" class="games-input" />
     </label>
     <label>
         <input type="checkbox" @bind="shuffleWon" disabled="@running" />
@@ -39,8 +40,106 @@
 
 @if (results.Count > 0 && !running)
 {
+    @if (hist != null)
+    {
+        <div class="sim-chart">
+            <div class="chart-title">Probability Distribution for the Number of Turns in a Game of War</div>
+            <div class="chart-sub">@hist.Total.ToString("N0") completed games &mdash; @BucketSize turns per bucket</div>
+            <svg viewBox="0 0 @ChartW @ChartH" role="img"
+                 aria-label="Histogram of the number of turns per game, @BucketSize turns per bucket">
+
+                @* Y gridlines and tick labels *@
+                @for (int i = 0; i * hist.YStep <= hist.YMax * 1.0001; i++)
+                {
+                    double t = i * hist.YStep;
+                    double gy = YOf(t);
+                    @if (i > 0)
+                    {
+                        <line x1="@PlotL" y1="@S(gy)" x2="@(PlotL + PlotW)" y2="@S(gy)"
+                              stroke="#2a2a3e" stroke-width="1" />
+                    }
+                    <g><text x="@(PlotL - 7)" y="@S(gy + 3.5)" text-anchor="end"
+                          font-size="11" fill="#999">@t.ToString("0.####", CultureInfo.InvariantCulture)</text></g>
+                }
+
+                @* Bars *@
+                @for (int b = 0; b < NBuckets; b++)
+                {
+                    int c = hist.Counts[b];
+                    if (c == 0) continue;
+                    double x = BarX(b) + 1;
+                    double w = SlotW - 2;
+                    double yTop = YOf(c / (double)hist.Total);
+                    <path d="@BarPath(x, w, yTop, PlotT + PlotH)"
+                          fill="@(b == hoverBucket ? "#4fc3f7" : "#3392d3")" />
+                }
+
+                @* X axis baseline, tick labels, axis titles *@
+                <line x1="@PlotL" y1="@(PlotT + PlotH)" x2="@(PlotL + PlotW)" y2="@(PlotT + PlotH)"
+                      stroke="#444" stroke-width="1" />
+                @for (int t = 0; t <= 1400; t += 200)
+                {
+                    <g><text x="@S(PlotL + t / (double)BucketSize * SlotW)" y="@(PlotT + PlotH + 16)"
+                          text-anchor="middle" font-size="11" fill="#999">@t.ToString("N0")</text></g>
+                }
+                <text x="@S(PlotL + (NBuckets - 1) * SlotW)" y="@(PlotT + PlotH + 16)"
+                      text-anchor="middle" font-size="11" fill="#999">1480+</text>
+                <text x="@(PlotL + PlotW / 2)" y="@(ChartH - 8)" text-anchor="middle"
+                      font-size="12" fill="#aaa">Number of Turns in a Game of War</text>
+                <text x="14" y="@(PlotT + PlotH / 2)" text-anchor="middle"
+                      font-size="12" fill="#aaa"
+                      transform="rotate(-90 14 @(PlotT + PlotH / 2))">Probability</text>
+
+                @* Full-height hover targets (bigger than the bars themselves) *@
+                @for (int b = 0; b < NBuckets; b++)
+                {
+                    int bb = b;
+                    <rect x="@S(BarX(b))" y="@PlotT" width="@S(SlotW)" height="@PlotH"
+                          fill="transparent"
+                          @onmouseover="() => hoverBucket = bb"
+                          @onmouseout="() => hoverBucket = -1" />
+                }
+
+                @* Tooltip *@
+                @if (hoverBucket >= 0)
+                {
+                    int c = hist.Counts[hoverBucket];
+                    double p = c / (double)hist.Total;
+                    string l1 = RangeLabel(hoverBucket) + " turns";
+                    string l2 = string.Format(CultureInfo.InvariantCulture, "{0:N0} games ({1:0.00}%)", c, p * 100);
+                    double bw = Math.Max(l1.Length, l2.Length) * 6.8 + 14;
+                    double bx = Math.Clamp(BarX(hoverBucket) + SlotW / 2 - bw / 2, PlotL, PlotL + PlotW - bw);
+                    double barTop = YOf(p);
+                    double by = barTop - 46 < PlotT ? barTop + 8 : barTop - 46;
+                    <g pointer-events="none">
+                        <rect x="@S(bx)" y="@S(by)" width="@S(bw)" height="38" rx="3"
+                              fill="#0d0d1a" stroke="#555" stroke-width="1" />
+                        <text x="@S(bx + 7)" y="@S(by + 15)" font-size="11" fill="#e0e0e0">@l1</text>
+                        <text x="@S(bx + 7)" y="@S(by + 30)" font-size="11" fill="#e0e0e0">@l2</text>
+                    </g>
+                }
+            </svg>
+            <details class="hist-table">
+                <summary>Histogram data (table)</summary>
+                <table>
+                    <thead><tr><th>Turns</th><th>Games</th><th>Probability</th></tr></thead>
+                    <tbody>
+                        @for (int b = 0; b < NBuckets; b++)
+                        {
+                            <tr>
+                                <td>@RangeLabel(b)</td>
+                                <td>@hist.Counts[b].ToString("N0")</td>
+                                <td>@string.Format(CultureInfo.InvariantCulture, "{0:0.000}%", 100.0 * hist.Counts[b] / hist.Total)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </details>
+        </div>
+    }
+
     <div class="sim-output">
-        <pre>@BuildReport()</pre>
+        <pre>@reportText</pre>
     </div>
 }
 
@@ -57,12 +156,19 @@
     private List<GameRecord> results = [];
     private const int BatchSize = 50;
 
+    private string reportText = "";
+    private HistogramData? hist;
+    private int hoverBucket = -1;
+
     private async Task RunSimulation()
     {
         running = true;
         cancelled = false;
         gamesRun = 0;
         results = [];
+        reportText = "";
+        hist = null;
+        hoverBucket = -1;
 
         var rng = new Random();
         var game = new kbCardGameWar(playerCount, rng);
@@ -88,6 +194,8 @@
             await Task.Yield();
         }
 
+        reportText = BuildReport();
+        hist = BuildHistogram();
         running = false;
     }
 
@@ -173,5 +281,64 @@
         sb.AppendLine("Avg " + perGame + " in a game: " + avg.ToString());
         sb.AppendLine("Total " + allGames + " in all games: " + sum.ToString("N0"));
         sb.AppendLine();
+    }
+
+    // ---- Histogram: 20 turns per bucket up to 1480, plus a 1480+ overflow bucket ----
+
+    private const int BucketSize = 20;
+    private const int NBuckets = 75;                 // 74 buckets to 1480, then 1480+
+    private const int ChartW = 860, ChartH = 460;
+    private const int PlotL = 55, PlotT = 14, PlotR = 12, PlotB = 54;
+    private static int PlotW => ChartW - PlotL - PlotR;
+    private static int PlotH => ChartH - PlotT - PlotB;
+    private static double SlotW => (double)PlotW / NBuckets;
+
+    private sealed class HistogramData
+    {
+        public int[] Counts = new int[NBuckets];
+        public int Total;       // completed (non-loop) games
+        public double YMax;
+        public double YStep;
+    }
+
+    private HistogramData? BuildHistogram()
+    {
+        var h = new HistogramData();
+        foreach (var r in results)
+        {
+            if (r.Loop) continue;
+            int b = Math.Min(r.Counters.nTurns / BucketSize, NBuckets - 1);
+            h.Counts[b]++;
+            h.Total++;
+        }
+        if (h.Total == 0) return null;
+
+        double maxProb = h.Counts.Max() / (double)h.Total;
+        h.YStep = NiceStep(maxProb / 5.0);
+        h.YMax = h.YStep * Math.Ceiling(maxProb / h.YStep);
+        return h;
+    }
+
+    private static double NiceStep(double raw)
+    {
+        double mag = Math.Pow(10, Math.Floor(Math.Log10(raw)));
+        double n = raw / mag;
+        return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * mag;
+    }
+
+    private static string S(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+    private static double BarX(int b) => PlotL + b * SlotW;
+    private double YOf(double prob) => PlotT + PlotH * (1 - prob / hist!.YMax);
+
+    private static string RangeLabel(int b) =>
+        b == NBuckets - 1 ? "1480+" : $"{b * BucketSize}–{b * BucketSize + BucketSize - 1}";
+
+    // Bar with a rounded top (data end) and a square baseline
+    private static string BarPath(double x, double w, double yTop, double yBase)
+    {
+        double r = Math.Min(3, Math.Min(w / 2, yBase - yTop));
+        return $"M{S(x)},{S(yBase)} L{S(x)},{S(yTop + r)} Q{S(x)},{S(yTop)} {S(x + r)},{S(yTop)} " +
+               $"L{S(x + w - r)},{S(yTop)} Q{S(x + w)},{S(yTop)} {S(x + w)},{S(yTop + r)} " +
+               $"L{S(x + w)},{S(yBase)} Z";
     }
 }
