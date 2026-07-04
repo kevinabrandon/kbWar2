@@ -28,10 +28,12 @@ public class kbCardGameWar
     private kb52CardDeck m_Deck;
     private kbCardHand[] m_Players;
     private kbCardHand[] m_ThrownCards;
+    private List<kbPlayingCard> m_ThrownOrder;
     private kbCardHand m_MostRecentlyWonCards;
     private List<int> m_MostRecentWinners;
     private GameCounters m_Counters;
     private bool m_bShuffleRecentlyWonCards = true;
+    private bool m_bLegacyPotOrder = false;
     private Random m_Rand;
 
     public kbCardGameWar() : this(2, new Random()) { }
@@ -57,6 +59,7 @@ public class kbCardGameWar
             m_Players[i] = new kbCardHand(m_Rand);
             m_ThrownCards[i] = new kbCardHand(m_Rand);
         }
+        m_ThrownOrder = new List<kbPlayingCard>();
         m_MostRecentlyWonCards = new kb52CardDeck(m_Rand);
         m_MostRecentWinners = new List<int>();
         m_State = GameState.eNotStarted;
@@ -67,6 +70,21 @@ public class kbCardGameWar
     {
         get => m_bShuffleRecentlyWonCards;
         set => m_bShuffleRecentlyWonCards = value;
+    }
+
+    /// <summary>
+    /// When true, the winner picks up the pot the way the original 2015 implementation
+    /// did: all thrown cards in one pile in table order (interleaved between players),
+    /// picked up in reverse. When false (default), the pot is grouped per player, which
+    /// is how this class has assembled it since the multiplayer rewrite. Irrelevant when
+    /// ShuffleRecentlyWonCards is on, but without shuffling the game is deterministic
+    /// after the deal, and the pickup order changes the infinite-loop rate dramatically
+    /// (roughly 10% legacy vs 42% grouped for 2 players).
+    /// </summary>
+    public bool LegacyPotOrder
+    {
+        get => m_bLegacyPotOrder;
+        set => m_bLegacyPotOrder = value;
     }
 
     public GameState State => m_State;
@@ -119,8 +137,18 @@ public class kbCardGameWar
         m_MostRecentWinners = ThrowDown(players, ref nWars);
 
         m_MostRecentlyWonCards.Clear();
-        foreach (var cards in m_ThrownCards)
-            while (cards.Count > 0) m_MostRecentlyWonCards.AddToBottom(cards.DrawFromBottom());
+        if (m_bLegacyPotOrder)
+        {
+            for (int i = m_ThrownOrder.Count - 1; i >= 0; i--)
+                m_MostRecentlyWonCards.AddToBottom(m_ThrownOrder[i]);
+            foreach (var cards in m_ThrownCards) cards.Clear();
+        }
+        else
+        {
+            foreach (var cards in m_ThrownCards)
+                while (cards.Count > 0) m_MostRecentlyWonCards.AddToBottom(cards.DrawFromBottom());
+        }
+        m_ThrownOrder.Clear();
 
         if (m_bShuffleRecentlyWonCards) m_MostRecentlyWonCards.Shuffle();
 
@@ -153,7 +181,11 @@ public class kbCardGameWar
     private List<int> ThrowDown(List<int> players, ref int recursionCount)
     {
         foreach (int iPlayer in players)
-            m_ThrownCards[iPlayer].AddToBottom(m_Players[iPlayer].DrawFromTop());
+        {
+            kbPlayingCard thrown = m_Players[iPlayer].DrawFromTop();
+            m_ThrownCards[iPlayer].AddToBottom(thrown);
+            m_ThrownOrder.Add(thrown);
+        }
 
         List<int> winningPlayers = new List<int>();
         int winningRank = 0;
@@ -175,7 +207,11 @@ public class kbCardGameWar
             else playersReadyToThrowDown.Add(iPlayer);
             if (nCardsToThrow > 4) nCardsToThrow = 4;
             for (int j = 0; j < nCardsToThrow - 1; j++)
-                m_ThrownCards[iPlayer].AddToBottom(m_Players[iPlayer].DrawFromTop());
+            {
+                kbPlayingCard thrown = m_Players[iPlayer].DrawFromTop();
+                m_ThrownCards[iPlayer].AddToBottom(thrown);
+                m_ThrownOrder.Add(thrown);
+            }
         }
 
         if (playersReadyToThrowDown.Count == 0) return winningPlayers;

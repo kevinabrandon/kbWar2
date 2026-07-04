@@ -18,6 +18,10 @@
         <input type="checkbox" @bind="shuffleWon" disabled="@running" />
         Shuffle recently won cards
     </label>
+    <label title="Pick up the pot the way the original 2015 code did: interleaved in table order, reversed. Only matters when shuffling is off.">
+        <input type="checkbox" @bind="legacyPot" disabled="@running" />
+        2015 pot pickup order
+    </label>
     <button class="btn btn-primary" @onclick="RunSimulation" disabled="@running">Run</button>
     @if (running)
     {
@@ -163,6 +167,7 @@
     private int playerCount = 2;
     private int totalGames = 1000;
     private bool shuffleWon = true;
+    private bool legacyPot = false;
     private bool running = false;
     private bool cancelled = false;
     private int gamesRun = 0;
@@ -189,6 +194,7 @@
         var rng = new Random();
         var game = new kbCardGameWar(playerCount, rng);
         game.ShuffleRecentlyWonCards = shuffleWon;
+        game.LegacyPotOrder = legacyPot;
         int target = totalGames;
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -231,6 +237,7 @@
         sb.AppendLine(shuffleWon
             ? "Shuffle the winning cards every turn"
             : "Perfect play, no shuffling of cards between turns, infinate loops possible!");
+        if (legacyPot) sb.AppendLine("Original 2015 pot pickup order (interleaved)");
 
         for (int p = 0; p < playerCount; p++)
         {
