@@ -32,12 +32,19 @@
                 <tr><td>How often do you get a WAR?</td><td>About 6 every 100 turns.</td></tr>
                 <tr><td>How often do you get a double WAR?</td><td>About 3 every 1,000 turns.</td></tr>
                 <tr><td>Can you have an unending game?</td><td>YES &mdash; but only if the players never mix up the cards they win.</td></tr>
-                <tr><td>How often are there unending games?</td><td>About a tenth of all games, if you never shuffle the won cards.*</td></tr>
+                <tr><td>How often are there unending games?</td><td>Somewhere between 10% and 40% of games, if you never shuffle the won cards.  It depends on exactly how you pick up the pot.*</td></tr>
             </tbody>
         </table>
         <p class="footnote">
-            * Only if you are very careful never to shuffle the cards won after each turn.  In practice this is unlikely.
-            Try it yourself on the <a href="simulate">Simulate</a> page &mdash; toggle the "Shuffle recently won cards" option and see what happens to the numbers.
+            * Here's the interesting part.  If nobody ever shuffles the cards they win, the game is completely
+            deterministic the moment the deal is done &mdash; whether it ends or goes on forever depends entirely
+            on the order the cards land in the pot and get placed back under the winner's deck.  My original
+            2014 program dropped the two players' cards into the pot interleaved and handed them to the winner
+            in reverse order, and about 10% of games never ended.  When I later rewrote the engine to support
+            more than two players, it collected each player's thrown cards together in a group instead &mdash;
+            and that one little change pushes unending games up to about 40%.  Try it yourself on the
+            <a href="simulate">Simulate</a> page: turn off "Shuffle recently won cards", then flip the
+            "2015 pot pickup order" checkbox and watch the infinite-loop rate jump between the two.
         </p>
 
         <p>
