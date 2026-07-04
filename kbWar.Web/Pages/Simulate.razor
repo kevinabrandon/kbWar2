@@ -44,7 +44,17 @@
     {
         <div class="sim-chart">
             <div class="chart-title">Probability Distribution for the Number of Turns in a Game of War</div>
-            <div class="chart-sub">@hist.Total.ToString("N0") completed games &mdash; @BucketSize turns per bucket</div>
+            <div class="chart-sub">
+                @hist.Total.ToString("N0") completed games &mdash; @BucketSize turns per bucket
+                @if (hist.Overflow > 0)
+                {
+                    <span> &mdash; @hist.Overflow.ToString("N0") games (@string.Format(CultureInfo.InvariantCulture, "{0:0.0}%", 100.0 * hist.Overflow / hist.Total)) went longer than @((NBuckets * BucketSize).ToString("N0")) turns and are off the right edge</span>
+                }
+                @if (hist.Loops > 0)
+                {
+                    <span> &mdash; @hist.Loops.ToString("N0") infinite loops not included</span>
+                }
+            </div>
             <svg viewBox="0 0 @ChartW @ChartH" role="img"
                  aria-label="Histogram of the number of turns per game, @BucketSize turns per bucket">
 
@@ -82,8 +92,6 @@
                     <g><text x="@S(PlotL + t / (double)BucketSize * SlotW)" y="@(PlotT + PlotH + 16)"
                           text-anchor="middle" font-size="11" fill="#999">@t.ToString("N0")</text></g>
                 }
-                <text x="@S(PlotL + (NBuckets - 1) * SlotW)" y="@(PlotT + PlotH + 16)"
-                      text-anchor="middle" font-size="11" fill="#999">1480+</text>
                 <text x="@(PlotL + PlotW / 2)" y="@(ChartH - 8)" text-anchor="middle"
                       font-size="12" fill="#aaa">Number of Turns in a Game of War</text>
                 <text x="14" y="@(PlotT + PlotH / 2)" text-anchor="middle"
@@ -130,6 +138,14 @@
                                 <td>@RangeLabel(b)</td>
                                 <td>@hist.Counts[b].ToString("N0")</td>
                                 <td>@string.Format(CultureInfo.InvariantCulture, "{0:0.000}%", 100.0 * hist.Counts[b] / hist.Total)</td>
+                            </tr>
+                        }
+                        @if (hist.Overflow > 0)
+                        {
+                            <tr>
+                                <td>@((NBuckets * BucketSize).ToString("N0"))+</td>
+                                <td>@hist.Overflow.ToString("N0")</td>
+                                <td>@string.Format(CultureInfo.InvariantCulture, "{0:0.000}%", 100.0 * hist.Overflow / hist.Total)</td>
                             </tr>
                         }
                     </tbody>
@@ -285,10 +301,12 @@
         sb.AppendLine();
     }
 
-    // ---- Histogram: 20 turns per bucket up to 1480, plus a 1480+ overflow bucket ----
+    // ---- Histogram: 20 turns per bucket covering 0–1479; longer games are counted
+    //      separately (hist.Overflow) and noted on the chart rather than piled into
+    //      a final bucket that would skew the shape of the distribution ----
 
     private const int BucketSize = 20;
-    private const int NBuckets = 75;                 // 74 buckets to 1480, then 1480+
+    private const int NBuckets = 74;
     private const int ChartW = 860, ChartH = 460;
     private const int PlotL = 55, PlotT = 14, PlotR = 12, PlotB = 54;
     private static int PlotW => ChartW - PlotL - PlotR;
@@ -298,7 +316,9 @@
     private sealed class HistogramData
     {
         public int[] Counts = new int[NBuckets];
-        public int Total;       // completed (non-loop) games
+        public int Total;       // completed (non-loop) games, including overflow
+        public int Overflow;    // completed games longer than the chart range
+        public int Loops;       // infinite-loop games (excluded from the chart)
         public double YMax;
         public double YStep;
     }
@@ -308,10 +328,11 @@
         var h = new HistogramData();
         foreach (var r in results)
         {
-            if (r.Loop) continue;
-            int b = Math.Min(r.Counters.nTurns / BucketSize, NBuckets - 1);
-            h.Counts[b]++;
+            if (r.Loop) { h.Loops++; continue; }
             h.Total++;
+            int b = r.Counters.nTurns / BucketSize;
+            if (b >= NBuckets) { h.Overflow++; continue; }
+            h.Counts[b]++;
         }
         if (h.Total == 0) return null;
 
@@ -333,7 +354,7 @@
     private double YOf(double prob) => PlotT + PlotH * (1 - prob / hist!.YMax);
 
     private static string RangeLabel(int b) =>
-        b == NBuckets - 1 ? "1480+" : $"{b * BucketSize}–{b * BucketSize + BucketSize - 1}";
+        $"{b * BucketSize}–{b * BucketSize + BucketSize - 1}";
 
     // Bar with a rounded top (data end) and a square baseline
     private static string BarPath(double x, double w, double yTop, double yBase)
