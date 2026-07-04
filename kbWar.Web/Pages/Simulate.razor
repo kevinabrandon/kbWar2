@@ -81,8 +81,8 @@
                 {
                     int c = hist.Counts[b];
                     if (c == 0) continue;
-                    double x = BarX(b) + 1;
-                    double w = SlotW - 2;
+                    double x = BarX(b) + 0.5;
+                    double w = SlotW - 1;
                     double yTop = YOf(c / (double)hist.Total);
                     <path d="@BarPath(x, w, yTop, PlotT + PlotH)"
                           fill="@(b == hoverBucket ? "#4fc3f7" : "#3392d3")" />
@@ -308,12 +308,12 @@
         sb.AppendLine();
     }
 
-    // ---- Histogram: 20 turns per bucket covering 0–1479; longer games are counted
+    // ---- Histogram: 10 turns per bucket covering 0–1479; longer games are counted
     //      separately (hist.Overflow) and noted on the chart rather than piled into
     //      a final bucket that would skew the shape of the distribution ----
 
-    private const int BucketSize = 20;
-    private const int NBuckets = 74;
+    private const int BucketSize = 10;
+    private const int NBuckets = 148;
     private const int ChartW = 860, ChartH = 460;
     private const int PlotL = 55, PlotT = 14, PlotR = 12, PlotB = 54;
     private static int PlotW => ChartW - PlotL - PlotR;
