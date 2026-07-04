@@ -250,7 +250,7 @@
         // Throws: zeros are placeholders for infinite-loop games; exclude them from min/avg/total
         AppendStat(sb, "throws", "throws",
             results.Select(r => r.Loop ? 0 : r.Counters.nTurns).ToList(),
-            hasMin: true, infiniteLoops: loops);
+            hasMin: true, hasMedian: true, infiniteLoops: loops);
 
         AppendStat(sb, "total wars", "total wars",
             results.Select(r => r.Counters.nTotalWars).ToList(), hasMin: true);
@@ -281,7 +281,7 @@
 
     // Matches the original GetMaxMinAvgCount logic from kbWarMainForm.cs
     private void AppendStat(System.Text.StringBuilder sb, string perGame, string allGames,
-        List<int> values, bool hasMin = false, int infiniteLoops = 0)
+        List<int> values, bool hasMin = false, bool hasMedian = false, int infiniteLoops = 0)
     {
         int max = int.MinValue, min = int.MaxValue;
         long sum = 0;
@@ -304,6 +304,18 @@
         sb.AppendLine("Max " + perGame + " in a game: " + max.ToString("N0"));
         if (hasMin) sb.AppendLine("Min " + perGame + " in a game: " + min.ToString("N0"));
         sb.AppendLine("Avg " + perGame + " in a game: " + avg.ToString());
+        if (hasMedian)
+        {
+            var sorted = (infiniteLoops > 0 ? values.Where(v => v != 0) : values)
+                .OrderBy(v => v).ToList();
+            if (sorted.Count > 0)
+            {
+                double median = sorted.Count % 2 == 1
+                    ? sorted[sorted.Count / 2]
+                    : (sorted[sorted.Count / 2 - 1] + sorted[sorted.Count / 2]) / 2.0;
+                sb.AppendLine("Median " + perGame + " in a game: " + median.ToString());
+            }
+        }
         sb.AppendLine("Total " + allGames + " in all games: " + sum.ToString("N0"));
         sb.AppendLine();
     }
