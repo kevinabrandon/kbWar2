@@ -18,7 +18,7 @@ Most of the original questions still have the same answers.  [See the full resul
 
 Questions | Answers
 ------------- | -----------
-How long does a game last? | About 270 turns on average — see the probability distribution below.
+How long does a game last? | The average game is 270 turns, the typical (median) game is about 204, and the most common game is in the 90–110 range (mode) — see the probability distribution below.
 How often do you get a WAR? | About 6 every 100 turns.
 How often do you get a double WAR? | About 3 every 1000 turns.
 Can you have an unending game? | YES, but only if the players never mix up the cards they win.
