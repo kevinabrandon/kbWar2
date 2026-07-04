@@ -17,6 +17,10 @@
         <input type="checkbox" @bind="shuffleWon" disabled="@gameStarted" />
         Shuffle recently won cards
     </label>
+    <label title="Pick up the pot the way the original 2015 code did: interleaved in table order, reversed. Only matters when shuffling is off.">
+        <input type="checkbox" @bind="legacyPot" disabled="@gameStarted" />
+        2015 pot pickup order
+    </label>
 
     @if (!gameStarted)
     {
@@ -109,6 +113,7 @@
 @code {
     private int playerCount = 2;
     private bool shuffleWon = true;
+    private bool legacyPot = false;
     private bool gameStarted = false;
     private bool gameOver = false;
     private bool autoPlaying = false;
@@ -122,6 +127,7 @@
     {
         game = new kbCardGameWar(playerCount, new Random());
         game.ShuffleRecentlyWonCards = shuffleWon;
+        game.LegacyPotOrder = legacyPot;
         game.ShuffleDeck();
         game.Deal();
         gameStarted = true;

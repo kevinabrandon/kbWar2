@@ -136,6 +136,50 @@ public class WarGameTests
     }
 
     [Fact]
+    public void Legacy_pot_order_conserves_all_52_cards()
+    {
+        var game = new kbCardGameWar(2, new Random(9));
+        game.ShuffleRecentlyWonCards = false;
+        game.LegacyPotOrder = true;
+        game.ShuffleDeck();
+        game.Deal();
+        for (int i = 0; i < 50 && game.State == kbCardGameWar.GameState.eCurrentlyPlaying; i++)
+        {
+            game.NewTurn();
+            Assert.Equal(52, game.GetPlayerCount(0) + game.GetPlayerCount(1));
+        }
+    }
+
+    [Fact]
+    public void Legacy_pot_order_loops_far_less_often_without_shuffling()
+    {
+        // The 2015 implementation interleaved the players' cards in the pot and
+        // reversed them on pickup, which mixes the deck a little every war and
+        // makes unending games much rarer (~10%) than the grouped pickup (~42%).
+        int LoopCount(bool legacy)
+        {
+            var game = new kbCardGameWar(2, new Random(42));
+            game.ShuffleRecentlyWonCards = false;
+            game.LegacyPotOrder = legacy;
+            int loops = 0;
+            for (int i = 0; i < 300; i++)
+            {
+                game.Restart(2);
+                game.ShuffleDeck();
+                game.Deal();
+                game.PlayTillFinished();
+                if (game.State == kbCardGameWar.GameState.eInfiniteLoop) loops++;
+            }
+            return loops;
+        }
+
+        int legacyLoops = LoopCount(true);
+        int groupedLoops = LoopCount(false);
+        Assert.True(legacyLoops * 2 < groupedLoops,
+            $"Expected legacy pot order to loop far less: legacy={legacyLoops}, grouped={groupedLoops}");
+    }
+
+    [Fact]
     public void Shuffle_off_can_produce_infinite_loop()
     {
         // Without shuffling, infinite loops are common — verify the heuristic works
