@@ -73,7 +73,7 @@
                               stroke="#2a2a3e" stroke-width="1" />
                     }
                     <g><text x="@(PlotL - 7)" y="@S(gy + 3.5)" text-anchor="end"
-                          font-size="11" fill="#999">@t.ToString("0.####", CultureInfo.InvariantCulture)</text></g>
+                          font-size="11" fill="#999">@(t.ToString("0.##", CultureInfo.InvariantCulture))%</text></g>
                 }
 
                 @* Bars *@
@@ -83,7 +83,7 @@
                     if (c == 0) continue;
                     double x = BarX(b) + 0.5;
                     double w = SlotW - 1;
-                    double yTop = YOf(c / (double)hist.Total);
+                    double yTop = YOf(100.0 * c / hist.Total);
                     <path d="@BarPath(x, w, yTop, PlotT + PlotH)"
                           fill="@(b == hoverBucket ? "#4fc3f7" : "#3392d3")" />
                 }
@@ -121,7 +121,7 @@
                     string l2 = string.Format(CultureInfo.InvariantCulture, "{0:N0} games ({1:0.00}%)", c, p * 100);
                     double bw = Math.Max(l1.Length, l2.Length) * 6.8 + 14;
                     double bx = Math.Clamp(BarX(hoverBucket) + SlotW / 2 - bw / 2, PlotL, PlotL + PlotW - bw);
-                    double barTop = YOf(p);
+                    double barTop = YOf(p * 100);
                     double by = barTop - 46 < PlotT ? barTop + 8 : barTop - 46;
                     <g pointer-events="none">
                         <rect x="@S(bx)" y="@S(by)" width="@S(bw)" height="38" rx="3"
@@ -343,9 +343,10 @@
         }
         if (h.Total == 0) return null;
 
-        double maxProb = h.Counts.Max() / (double)h.Total;
-        h.YStep = NiceStep(maxProb / 5.0);
-        h.YMax = h.YStep * Math.Ceiling(maxProb / h.YStep);
+        // Y scale is in percent (0–100)
+        double maxPct = 100.0 * h.Counts.Max() / h.Total;
+        h.YStep = NiceStep(maxPct / 5.0);
+        h.YMax = h.YStep * Math.Ceiling(maxPct / h.YStep);
         return h;
     }
 
@@ -358,7 +359,7 @@
 
     private static string S(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
     private static double BarX(int b) => PlotL + b * SlotW;
-    private double YOf(double prob) => PlotT + PlotH * (1 - prob / hist!.YMax);
+    private double YOf(double pct) => PlotT + PlotH * (1 - pct / hist!.YMax);
 
     private static string RangeLabel(int b) =>
         $"{b * BucketSize}–{b * BucketSize + BucketSize - 1}";
