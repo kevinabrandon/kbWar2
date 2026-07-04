@@ -47,6 +47,12 @@ jobs:
           INDEX=publish/wwwroot/index.html
           sed -i 's|<base href="/" />|<base href="/kbWar2/" />|g' "$INDEX"
 
+      # GitHub Pages has no server-side routing, so deep links like /kbWar2/game
+      # 404 unless the 404 page IS the app: Pages serves 404.html, Blazor boots,
+      # and the client-side router shows the requested page.
+      - name: SPA fallback for client-side routes
+        run: cp publish/wwwroot/index.html publish/wwwroot/404.html
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
